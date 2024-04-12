@@ -1,0 +1,117 @@
+program compmed, eclass
+	version 17.0
+	
+	syntax varlist(max=1), mvar(varname numeric) dvar(varname numeric) rvar(varname numeric) [cvars(varlist numeric) FULLoutput vce(string) missing(string)]
+	display
+	
+	* Make sure all variables are lower case
+	local y `varlist'
+	local yvar = lower("`y'")
+	local m `mvar'
+	local mvar = lower("`m'")
+	local d `dvar'
+	local dvar = lower("`d'")
+	local r `rvar'
+	local rvar = lower("`r'")
+
+	* Temporarily rename Y, M, D, R variables in users dataset to be lowercase
+	preserve
+	qui rename `y' `yvar'
+	qui rename `m' `mvar'
+	qui rename `d' `dvar'
+	qui rename `r' `rvar'
+	
+	* Create a local string of lowercase covariates (at this point, the lowercase covariates do not exist in the users dataset)
+	local lower = lower("`cvars'")
+	
+	* Rename the covariates as lowercase in the users dataset
+	foreach c of varlist `cvars' {
+		local new = lower("`c'")
+		rename `c' `new'
+		}
+		
+	* Now, the cvars string is a list of lowercase variables that exist in the users dataset because they've just been renamed
+	local cvars `lower'
+		
+	* Parse through Robust, Cluster, and Bootstrap options
+    _vce_parse , optlist(Robust BOOTstrap) argoptlist(CLuster): , vce(`vce')
+	local vce_text "`r(vceopt)'"
+	local robust "`r(robust)'"
+	local vce "`r(vce)'"
+	
+	* Parse through mlmv option with sem
+	local mi "method(`missing')"
+	
+	if "`fulloutput'" == "" {
+		* Set seed for bootstrap option
+		set seed 1234
+		qui sem (`rvar' `cvars' -> `dvar') (`dvar' `cvars' -> `mvar') (`dvar' `mvar' `cvars' -> `yvar'), nolog cov(e.`dvar'*e.`mvar') cov(e.`dvar'*e.`yvar') `vce_text' `mi'
+	}
+	else {
+		* Set seed for bootstrap option
+		set seed 1234
+		sem (`rvar' `cvars' -> `dvar') (`dvar' `cvars' -> `mvar') (`dvar' `mvar' `cvars' -> `yvar'), nolog cov(e.`dvar'*e.`mvar') cov(e.`dvar'*e.`yvar') `vce_text' `mi'
+		display
+	}
+	
+	local nobs = e(N)
+	qui estat teffects, compact
+	qui matrix direct = r(V_direct)
+	qui matrix indirect = r(V_indirect)
+	qui matrix total = r(V_total)
+	
+	* Coefficients
+	local cande_coef = _b[`yvar':`dvar']
+	local cacme_coef = _b[`mvar':`dvar']*_b[`yvar':`mvar']
+	local cace_coef = `cande_coef' + `cacme_coef'
+	local dm_coef = _b[`mvar':`dvar']
+	local my_coef = _b[`yvar':`mvar']
+	mat coef = (`cace_coef', `cande_coef', `cacme_coef', `dm_coef', `my_coef')
+	
+	* Var-cov matrices
+	local cov_cace = total["`yvar'":"`dvar'","`yvar'":"`dvar'"]
+	local cov_cande = direct["`yvar'":"`dvar'","`yvar'":"`dvar'"]
+	local cov_cacme = indirect["`yvar'":"`dvar'","`yvar'":"`dvar'"]
+	local cov_dm = direct["`mvar'":"`dvar'","`mvar'":"`dvar'"]
+	local cov_my = direct["`yvar'":"`mvar'","`yvar'":"`mvar'"]
+	
+	mat vce = (`cov_cace', 0, 0, 0, 0 \ 0, `cov_cande', 0, 0, 0 \ 0, 0, `cov_cacme', 0, 0 \ 0, 0, 0, `cov_dm', 0 \ 0, 0, 0, 0, `cov_my')
+
+	mat colnames coef =  CACE CANDE CACME dvar->mvar mvar->yvar
+	mat rownames vce = CACE CANDE CACME dvar->mvar mvar->yvar
+	mat colnames vce = CACE CANDE CACME dvar->mvar mvar->yvar
+	
+	if "`fulloutput'" == "" {
+		display "Number of obs = `nobs'"
+	}
+	
+	* Make sure the display table reflects the vce option specified
+	if "`vce'" == "cluster" | "`vce'" == "robust" {
+		ereturn post coef vce, obs(`nobs')
+        ereturn local vcetype Robust
+        ereturn display            
+    }
+	else if "`vce'" == "bootstrap" {
+		ereturn post coef vce, obs(`nobs')
+		ereturn local vce bootstrap
+        ereturn local vcetype Bootstrap
+        ereturn display  
+	}
+	else {
+		ereturn post coef vce, obs(`nobs')
+        ereturn local vcetype OIM
+        ereturn display  
+	}
+	
+	* Telling Stata that the estimation results are complete:
+	ereturn local cmd "compmed"
+	ereturn local cmdline `"compmed `0'"'
+
+	* Specify the text underneath the display table
+	display "cace: complier average causal effect"
+	display "cande: complier average natural direct effect"
+	display "cacme: complier average causal mediated effect"
+	restore
+	display "dvar: `d', mvar: `m', yvar: `y'"
+	
+end
