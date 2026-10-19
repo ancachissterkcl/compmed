@@ -1,0 +1,109 @@
+Title
+
+    compmed -- Compliance adjusted causal mediation analysis
+
+Syntax
+
+        compmed outcome, mvar(mediator) dvar(receipt) rvar(rgroup) 
+                 [cvars(varlist) method(method) vce(vcetype) breps(#) seed(#) 
+                  FULLoutput] 
+
+    outcome and mediator must be continuous, receipt and rgroup must be binary. 
+    rgroup is coded 0 for the control group and 1 for the treatment group. 
+    receipt is coded 0 for not having received treatment, and 1 for having 
+    received treatment. If compliance is measured on a continuous scale, one 
+    must create a binary compliance indicator. cvars should consist of 
+    baseline mediator and outcome scores when available in the dataset.
+
+    options                    Description
+    --------------------------------------------------------------------------
+    cvars(varlist)             baseline covariates to be included in the 
+			         receipt, mediator, and outcome structural 
+				 models.
+    breps(#)                   specifies the number of bootstrap replications
+			         to be performed; default is breps(1000)    
+    seed(#)		       sets the random-number seed to #. If unspecified
+				 the seed will be a random number between 1 and
+				 1000.
+    vce(vcetype)	       vcetype may be oim, robust, cluster clustervar, or
+				 bootstrap
+    method(method)             method may be ml or mlmv
+    FULLoutput                 reports decomposition of effects into total, 
+			         direct, and indirect
+    --------------------------------------------------------------------------
+
+Description
+
+    compmed implements a compliance-adjusted causal mediation analysis for 
+    estimating the complier average causal effect (CACE) and its decomposition 
+    into the complier average causal mediated effect (CACME) and the complier 
+    average natural direct effect (CANDE). The command fits a structural equation 
+    model (SEM) within a unified efficacy mechanism evaluation framework.
+
+Options
+
+    cvars(varlist) specifies any baseline covariates to be included as covariates
+        in the receive, mediator, and outcome structural models.
+
+    breps(#) specifies the number of bootstrap replications to be performed;
+	default is breps(1000)    
+    
+    seed(#) sets the random-number seed to #. If unspecified the seed will be a 
+	random number between 1 and 1000.
+
+    vce(vcetype) specifies the technique used to obtain the variance-covariance 
+        matrix of the estimates (VCE), which includes the reported standard 
+        errors; default is vce(oim). 
+
+    method(method) specifies the method used to obtain parameter estimates; 
+        default is method(ml).
+
+    FULLoutput reports the decomposition of effects into total, direct, and 
+        indirect effects.
+
+
+Example
+
+    Use compmed to estimate the CACME, CANDE, and CACE (minimum specification)
+        . compmed Y, mvar(M) dvar(D) rvar(R)
+
+    Use compmed to estimate the CACME, CANDE, and CACE, adjusting for baseline
+      mediator and outcome values (recommended approach)
+        . compmed Y, mvar(M) dvar(D) rvar(R) cvars(Y0 M0) 
+
+    Use compmed to estimate the CACME, CANDE, and CACE, adjusting for baseline
+      mediator and outcome values and accounting for clustering by Therapist
+        . compmed Y, mvar(M) dvar(D) rvar(R) cvars(Y0 M0) vce(cl Therapist)
+
+
+References
+
+    Chis Ster, A. (2026). "A unified approach to a statistical efficacy and
+	mechanism evaluation in clinical trials." Under review. 
+
+    Yamamoto, Teppei. 2013. 'Identification and Estimation of Causal Mediation Effects 
+	with Treatment Noncompliance', Unpublished manuscript.
+
+    Park, Soojin, and Esra Kürüm. 2020. 'A Two-Stage Joint Modeling Method for Causal 
+	Mediation Analysis in the Presence of Treatment Noncompliance', Journal of 
+	Causal Inference, 8: 131-49.
+
+Authors
+
+    Anca Chis Ster
+    Institute of Psychiatry, Psychology and Neuroscience
+    King's College London
+    London, UK
+    anca.m.chis_ster@kcl.c.uk
+
+    Sabine Landau
+    Institute of Psychiatry, Psychology and Neuroscience
+    King's College London
+    London, UK
+    sabine.landau@kcl.ac.uk
+
+    Richard Emsley
+    Institute of Psychiatry, Psychology and Neuroscience
+    King's College London
+    London, UK
+    richard.emsley@kcl.ac.uk
